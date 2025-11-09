@@ -164,3 +164,93 @@ class HuffmanCoding:
 
         print("Decompression complete. Decompressed file:", output_path)
         return output_path
+
+
+## more simplified appraoch [alongwith remmoval of decompression logic] 
+
+
+
+import heapq
+from collections import defaultdict
+import os
+
+class Node:
+    def __init__(self, char, freq, left=None, right=None):
+        self.char = char
+        self.freq = freq
+        self.left = left
+        self.right = right
+
+    def __lt__(self, other):
+        return self.freq < other.freq
+
+class HuffmanCompressor:
+    def __init__(self, path):
+        self.path = path
+        self.codes = {}
+
+    
+    def _frequency_dict(self, text):
+        freq = defaultdict(int)
+        for ch in text:
+            freq[ch] += 1
+        return freq
+
+    
+    def _build_tree(self, freq):
+        heap = [Node(ch, f) for ch, f in freq.items()]
+        heapq.heapify(heap)
+        while len(heap) > 1:
+            n1, n2 = heapq.heappop(heap), heapq.heappop(heap)
+            merged = Node(None, n1.freq + n2.freq, n1, n2)
+            heapq.heappush(heap, merged)
+        return heap[0]
+
+    
+    def _generate_codes(self, node, current=""):
+        if node is None:
+            return
+        if node.char is not None:
+            self.codes[node.char] = current
+            return
+        self._generate_codes(node.left, current + "0")
+        self._generate_codes(node.right, current + "1")
+
+    
+    def _encode_text(self, text):
+        return ''.join(self.codes[ch] for ch in text)
+
+    
+    def _pad_bits(self, bits):
+        padding = 8 - len(bits) % 8
+        bits += '0' * padding
+        return f"{padding:08b}" + bits  
+
+    
+    def _to_bytearray(self, bits):
+        return bytearray(int(bits[i:i+8], 2) for i in range(0, len(bits), 8))
+
+    def compress(self):
+        
+        filename, _ = os.path.splitext(self.path)
+        output_path = filename + ".bin"
+
+        with open(self.path, 'r') as f:
+            text = f.read().rstrip()
+
+        
+        freq = self._frequency_dict(text)
+        root = self._build_tree(freq)
+        self._generate_codes(root)
+
+        encoded = self._encode_text(text)
+        padded = self._pad_bits(encoded)
+        byte_array = self._to_bytearray(padded)
+
+        
+        with open(output_path, 'wb') as f:
+            f.write(bytes(byte_array))
+
+        print(f"Compression complete → {output_path}")
+        return output_path
+
